@@ -1,0 +1,17 @@
+{
+  "tiempo_colmap_min": 31.7,
+  "frames_extraidos": 617,
+  "frames_borrosos_%": 0.2,
+  "camaras_con_pose": 617,
+  "puntos_3d_colmap": 162343,
+  "error_reproyeccion_medio_px": 0.403,
+  "track_medio_imagenes": 15.2,
+  "tiempo_entrenamiento_min": 47.2,
+  "psnr_dB": 31.31,
+  "ssim": 0.934,
+  "lpips": 0.102,
+  "frames_de_evaluacion": 61,
+  "gaussianas": 884060,
+  "tamano_ply_MB": 219,
+  "gaussianas_casi_transparentes_%": 17.5
+}

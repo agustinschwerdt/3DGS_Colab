@@ -1,0 +1,17 @@
+{
+  "experiment_name": "mi_aula",
+  "method_name": "splatfacto",
+  "checkpoint": "outputs/mi_aula/splatfacto/2026-11-13_222142/nerfstudio_models/step-000029999.ckpt",
+  "results": {
+    "psnr": 32.88556671142578,
+    "psnr_std": 2.845957040786743,
+    "ssim": 0.9337195158004761,
+    "ssim_std": 0.01561741903424263,
+    "lpips": 0.24599899351596832,
+    "lpips_std": 0.034259434789419174,
+    "num_rays_per_sec": 1579726.0,
+    "num_rays_per_sec_std": 233132.84375,
+    "fps": 1.098939061164856,
+    "fps_std": 0.16217924654483795
+  }
+}

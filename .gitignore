@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Videos originales (pesan más de 100 MB, el límite de GitHub)
+dataset/
+
+# Archivos pesados generados por el notebook
+Resultados/*/splat/
+Resultados/*/comparaciones_real_vs_render/
+Resultados/*/entrenamiento.log
+
+# Otros
+Claude outputs/
+Paper/*.zip
+Paper/latex/*.aux
+Paper/latex/*.log
+Paper/latex/*.out
+.ipynb_checkpoints/
