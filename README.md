@@ -1,6 +1,6 @@
 # Reconstrucción 3D de espacios mediante COLMAP y Gaussian Splatting
 
-[![Abrir en Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/USUARIO/REPOSITORIO/blob/main/3DGS_Colab.ipynb)
+[![Abrir en Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agustinschwerdt/3DGS_Colab/blob/main/3DGS_Colab.ipynb)
 
 Proyecto final de **Introducción a los Vehículos Inteligentes**: Ingeniería Electrónica, Facultad de Ingeniería, Universidad Nacional del Comahue.
 
