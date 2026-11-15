@@ -29,16 +29,16 @@
 \maketitle
 
 \begin{abstract}
-En este trabajo se reconstruyeron en 3D cuatro escenas de la facultad (un objeto sobre una mesa, dos aulas y un pasillo) a partir de un único video filmado con un celular, sin LiDAR y sin calibrar la cámara. Primero se estimó la trayectoria de la cámara y una nube de puntos dispersa con Structure from Motion (COLMAP con extracción y correspondencia de características en GPU y el mapper global GLOMAP). Después se entrenó un modelo de 3D Gaussian Splatting que permite ver la escena desde puntos de vista nuevos. Las cuatro reconstrucciones registraron el 100\,\% de los frames, con un error de reproyección medio entre 0,36 y 0,62 píxeles, y los renders alcanzaron entre 27,4 y 32,9\,dB de PSNR sobre frames no usados en el entrenamiento.
+En este trabajo se reconstruyó en 3D cuatro escenas de la facultad (un objeto sobre una mesa, dos aulas y un pasillo) a partir de un único video filmado con un celular. Primero se estimó la trayectoria de la cámara y una nube de puntos dispersa con Structure from Motion (COLMAP con extracción y correspondencia de características en GPU y el mapper global GLOMAP). Después se entrenó un modelo de 3D Gaussian Splatting que permite ver la escena desde puntos de vista nuevos. Las cuatro reconstrucciones registraron el 100\,\% de los frames, con un error de reproyección medio entre 0,36 y 0,62 píxeles, y los renders alcanzaron entre 27,4 y 32,9\,dB de PSNR sobre frames no usados en el entrenamiento.
 \end{abstract}
 
 \section{Introducción}
 
-Un vehículo inteligente debe resolver dos problemas relacionados: la \textbf{localización}, es decir, determinar su \textit{pose} (posición y orientación) relativa a un mapa del ambiente, y la \textbf{construcción de mapas}, que asume conocida la pose del vehículo. Como para localizarse hace falta un mapa y para construir el mapa hace falta conocer la pose, ambos problemas se resuelven en conjunto mediante el \textbf{mapeo y localización simultánea} (SLAM, por sus siglas en inglés), visto en la Unidad V de la materia \cite{catedraU5}.
+Un vehículo inteligente debe resolver dos problemas relacionados: la \textbf{localización}, es decir, determinar su \textit{pose} (posición y orientación) relativa a un mapa del ambiente, y la \textbf{construcción de mapas}, que asume conocida la pose del vehículo. Para localizarse hace falta un mapa y para construir el mapa hace falta conocer la pose, ambos problemas se resuelven en conjunto mediante el \textbf{mapeo y localización simultánea} (SLAM, por sus siglas en inglés), visto en la Unidad V de la materia \cite{catedraU5}.
 
-En este proyecto se aborda ese problema usando solamente una cámara monocular convencional, en un ambiente estático. A partir de un video se estima el \textit{movimiento de la cámara} (su trayectoria) y la \textit{estructura 3D} de la escena, que son los dos objetivos de la reconstrucción por visión de la Unidad V. Como se procesa todo el video junto, es una versión \textit{offline} del problema, equivalente al \textit{Full SLAM}: se estiman la trayectoria y el mapa completos. Sobre esa reconstrucción se construye un modelo 3D fotorrealista que puede recorrerse virtualmente y sirve como \textit{gemelo digital} del entorno, por ejemplo para generar imágenes sintéticas o para probar algoritmos de percepción en simulación.
+Este proyecto aborda ese problema usando una cámara monocular convencional, en un ambiente estático. A partir de un video se estima tanto el \textit{movimiento de la cámara} (su trayectoria) como la \textit{estructura 3D} de la escena, que son los dos objetivos de la reconstrucción por visión de la Unidad V. Todo el video se procesa junto; es una versión \textit{offline} del problema, equivalente al \textit{Full SLAM}: se estiman la trayectoria y el mapa completos. Sobre esa reconstrucción se construye un modelo 3D fotorrealista que puede recorrerse virtualmente y sirve como \textit{gemelo digital} del entorno, como por ejemplo para generar imágenes sintéticas o para probar algoritmos de percepción en simulación.
 
-El trabajo se dividió en tres etapas: (1) la filmación de cuatro escenas, (2) la estimación de las poses de la cámara mediante Structure from Motion (SfM) y (3) el entrenamiento de un modelo de 3D Gaussian Splatting (3DGS) y su evaluación con métricas de calidad de imagen.
+El trabajo se divide en tres etapas: (1) filmación de cuatro escenas, (2) estimación de las poses de la cámara mediante Structure from Motion (SfM) y (3) entrenamiento de un modelo de 3D Gaussian Splatting (3DGS) sumado a la  evaluación con métricas de calidad de imagen.
 
 \section{Marco teórico}
 
@@ -48,13 +48,13 @@ Se usa el \textbf{modelo pinhole} con distorsión de la lente \cite{catedraU2}. 
 \begin{equation}
 \mathbf{x} = \mathbf{K}\,[\,\mathbf{R}\;|\;\mathbf{t}\,]\,\mathbf{X},
 \end{equation}
-donde la matriz de calibración $\mathbf{K}$ contiene los \textbf{parámetros intrínsecos} (distancias focales y punto principal, en píxeles) y $\mathbf{R}$, $\mathbf{t}$ son los \textbf{parámetros extrínsecos}, es decir, la pose de la cámara. En este trabajo no se calibró la cámara: el SfM estima los intrínsecos y la distorsión una vez para todo el video, y los extrínsecos para cada frame. Esos parámetros se usan después para proyectar el modelo 3D sobre cada imagen durante el entrenamiento.
+donde la matriz de calibración $\mathbf{K}$ contiene los \textbf{parámetros intrínsecos} (distancias focales y punto principal, en píxeles) y $\mathbf{R}$, $\mathbf{t}$ son los \textbf{parámetros extrínsecos}, es decir, la pose de la cámara. En este trabajo no se calibra la cámara: el SfM estima los parámetros intrínsecos y la distorsión una vez para todo el video, y los parámetros extrínsecos para cada frame. Esos parámetros se usan después para proyectar el modelo 3D sobre cada imagen durante el entrenamiento.
 
 \subsection{Extracción de características: puntos característicos, correspondencias y RANSAC}
 
-Para relacionar dos imágenes de la misma escena se buscan \textbf{puntos característicos} o puntos de interés (\textit{keypoints}). Una buena característica debe ser \textit{repetible}, para poder encontrarla en otras imágenes; por eso los puntos aparecen en zonas con textura y casi nunca en superficies lisas.
+Para relacionar dos imágenes de la misma escena se buscan \textbf{puntos característicos} o puntos de interés (\textit{keypoints}). Una buena característica debe ser \textit{repetible}, para poder encontrarla en otras imágenes.
 
-Se usó \textbf{SIFT} (\textit{Scale Invariant Feature Transform}) \cite{catedraU3}. Detecta los puntos con diferencias de gaussianas (DoG) a distintas escalas, lo que lo hace invariante a la escala, y describe cada punto con un vector de 128 dimensiones (histogramas de orientación del gradiente) invariante a la rotación y a cambios de iluminación (Fig.~\ref{fig:sift}).
+Se usa \textbf{SIFT} (\textit{Scale Invariant Feature Transform}) \cite{catedraU3}. Detecta los puntos con diferencias de gaussianas (DoG) a distintas escalas, lo que lo hace invariante a la escala, y describe cada punto con un vector de 128 dimensiones (histogramas de orientación del gradiente) invariante a la rotación y a cambios de iluminación (Fig.~\ref{fig:sift}).
 
 \begin{figure}[htbp]
 \centering
@@ -67,7 +67,7 @@ La \textbf{correspondencia} (\textit{matching}) compara los descriptores de dos 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.9\columnwidth]{fig/ransac.jpg}
+\includegraphics[width=0.9\columnwidth]{fig/ransac.png}
 \caption{Arriba: correspondencias brutas de puntos SIFT entre dos frames, con outliers (líneas cruzadas). Abajo: inliers que quedan después de estimar la matriz fundamental con RANSAC.}
 \label{fig:ransac}
 \end{figure}
@@ -76,15 +76,15 @@ La \textbf{correspondencia} (\textit{matching}) compara los descriptores de dos 
 
 \textit{Structure from Motion} \cite{colmap} resuelve, a partir de múltiples vistas, los dos objetivos de la reconstrucción: el \textbf{movimiento de la cámara}, es decir, los parámetros extrínsecos (pose) de la cámara en cada imagen, y la \textbf{estructura 3D}, es decir, la posición 3D de los puntos característicos. También estima los parámetros intrínsecos y la distorsión, por lo que no hace falta calibrar la cámara.
 
-En términos de SLAM, los puntos 3D cumplen el papel de \textit{landmarks} del mapa y las correspondencias filtradas con RANSAC resuelven la \textit{asociación de datos}.
+En términos de SLAM, los puntos 3D cumplen el papel de \textit{landmarks (anclas)} del mapa y las correspondencias filtradas con RANSAC resuelven la \textit{asociación de datos}.
 
-El enfoque clásico, \textit{incremental}, agrega las cámaras de a una y reajusta todo el modelo cada vez. El enfoque \textit{global}, implementado en GLOMAP e incorporado a COLMAP \cite{colmap}, estima primero todas las rotaciones juntas, luego todas las posiciones de cámaras y puntos en un único problema, y suele ser más rápido. En ambos casos el resultado se refina con un \textit{bundle adjustment}: un ajuste por mínimos cuadrados de todas las poses y puntos que minimiza el \textbf{error de reproyección}, la distancia en píxeles entre donde se observa un punto en la imagen y donde lo proyecta el modelo de cámara de la ecuación (1).
+El enfoque clásico, \textit{incremental}, agrega las cámaras de a una y reajusta todo el modelo cada vez. El enfoque \textit{global}, implementado en GLOMAP e incorporado a COLMAP \cite{colmap}, estima primero todas las rotaciones juntas, luego todas las posiciones de cámaras y puntos en un único problema. En ambos casos el resultado se refina con un \textit{bundle adjustment}: un ajuste por mínimos cuadrados de todas las poses y puntos que minimiza el \textbf{error de reproyección}, la distancia en píxeles entre donde se observa un punto en la imagen y donde lo proyecta el modelo de cámara de la ecuación (1).
 
 Con una cámara monocular el SfM no puede conocer la escala real: una escena el doble de grande filmada desde el doble de distancia produce las mismas imágenes. Por eso el modelo tiene unidades arbitrarias.
 
 \subsection{3D Gaussian Splatting}
 
-El SfM entrega un mapa de puntos disperso: unas decenas o cientos de miles de puntos, que dejan huecos donde no hubo características (paredes lisas, pisos). Para obtener un modelo que se pueda \textit{ver} como una foto desde cualquier posición se usó 3D Gaussian Splatting (3DGS) \cite{kerbl2023}, una técnica de 2023 que no forma parte de los contenidos de la materia y es la parte novedosa de este proyecto.
+El SfM entrega un mapa de puntos disperso: unas decenas o cientos de miles de puntos, que dejan huecos donde no hubo características (paredes lisas, pisos). Para obtener un modelo que se pueda \textit{ver} como una foto desde cualquier posición se usó 3D Gaussian Splatting (3DGS) \cite{kerbl2023}, una técnica que no forma parte de los contenidos de la materia y es la parte novedosa de este proyecto.
 
 \subsubsection{La idea}
 En lugar de describir la escena con superficies (una malla de triángulos), 3DGS la describe con cientos de miles o millones de \textbf{gaussianas 3D}: pequeñas ``manchas'' difusas y semitransparentes con forma de elipsoide, como gotas de pintura en aerosol suspendidas en el espacio. Cada gaussiana tiene:
@@ -95,6 +95,13 @@ En lugar de describir la escena con superficies (una malla de triángulos), 3DGS
 \item un \textbf{color} que puede cambiar levemente según desde dónde se la mire, lo que permite representar brillos y reflejos.
 \end{itemize}
 Se usan gaussianas porque son suaves y derivables, y porque una gaussiana 3D proyectada sobre una imagen sigue siendo una gaussiana: una elipse 2D, fácil y rápida de dibujar.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\columnwidth]{fig/gaussians.png}
+\caption{Representación de una escena con gaussianas 3D: cada elipsoide semitransparente tiene su propia posición, forma, orientación, opacidad y color. Sobre el plano se dibuja su proyección, que es una elipse 2D (\textit{splat}).}
+\label{fig:gaussians}
+\end{figure}
 
 \subsubsection{Cómo se genera una imagen}
 Para obtener la imagen que vería una cámara con pose conocida, cada gaussiana se proyecta sobre el plano de imagen con el modelo de cámara de la ecuación (1). Esa proyección ``aplasta'' el elipsoide en una mancha 2D sobre la pantalla (de ahí el nombre \textit{splatting}). Luego las manchas se ordenan por distancia a la cámara y se superponen de adelante hacia atrás. El color de cada píxel es la mezcla de las gaussianas que lo cubren:
@@ -158,6 +165,7 @@ Para evaluar el modelo, siguiendo la evaluación que trae Nerfstudio \cite{nerfs
 \mathrm{PSNR} = 10\log_{10}\!\left(\frac{\mathrm{MAX}^2}{\mathrm{MSE}}\right)
 \end{equation}
 \item \textbf{SSIM} (0 a 1): similitud estructural, que compara luminancia, contraste y estructura local. Más alto es mejor.
+\item \textbf{MAX} : Valor máximo posible del píxel en la imagen (por ejemplo, $255$ para imágenes de 8 bits o $1.0$ si están normalizadas).
 \item \textbf{LPIPS}: distancia perceptual calculada con una red neuronal, que se asemeja a cuánto se nota la diferencia a simple vista. Más bajo es mejor.
 \end{itemize}
 
@@ -165,7 +173,7 @@ Para evaluar el modelo, siguiendo la evaluación que trae Nerfstudio \cite{nerfs
 
 \subsection{Captura de las escenas}
 
-Se filmaron cuatro escenas con la cámara de un iPhone, a 1080p, moviéndose despacio y recorriendo la escena desde distintos ángulos (Tabla~\ref{tab:escenas}). La escena \textit{Lata} es un objeto pequeño (una lata de yerba) filmado en un recorrido circular a su alrededor. Las escenas \textit{Aula B1} y \textit{Aula B2} son dos laboratorios de la facultad, y \textit{Pasillo} es un recorrido en línea recta por un pasillo.
+Se filmaron cuatro escenas con la cámara de un iPhone 16, a 1080p, moviéndose despacio y recorriendo la escena desde distintos ángulos (Tabla~\ref{tab:escenas}). La escena \textit{Lata} es un objeto pequeño (una lata de yerba) filmado en un recorrido circular a su alrededor. Las escenas \textit{Aula B1} y \textit{Aula B2} son dos laboratorios de la facultad, y \textit{Pasillo} es un recorrido en línea recta por un pasillo.
 
 \begin{table}[htbp]
 \caption{Escenas filmadas}
@@ -216,9 +224,11 @@ El procesamiento se implementó en un cuaderno de Google Colab con una GPU NVIDI
 
 \section{Resultados}
 
+
+
 \subsection{Structure from Motion}
 
-La Tabla~\ref{tab:sfm} resume los resultados del SfM. En las cuatro escenas se estimó la pose del 100\,\% de los frames y el error de reproyección medio quedó por debajo de 1 píxel, lo que indica que las poses y los puntos 3D son consistentes con las imágenes. Cada punto 3D se observa, en promedio, en entre 9 y 15 imágenes. El porcentaje de frames borrosos fue bajo en todos los casos (como máximo 4,6\,\% en Aula B2).
+La Tabla~\ref{tab:sfm} resume los resultados del SfM. En las cuatro escenas se estimó la pose del 100\,\% de los frames y el error de reproyección medio quedó por debajo de 1 píxel, lo que indica que las poses y los puntos 3D son consistentes con las imágenes. Cada punto 3D se observa, en promedio, en entre 9 y 15 imágenes. El porcentaje de frames borrosos fue como máximo 4,6\,\% en Aula B2.
 
 \begin{table}[htbp]
 \caption{Resultados del Structure from Motion}
@@ -259,7 +269,23 @@ La Fig.~\ref{fig:camaras} muestra las mismas poses en 3D, dibujadas como pirámi
 \label{fig:tray}
 \end{figure}
 
-El tiempo de SfM creció mucho con el tamaño de la escena. En la escena Lata, la extracción SIFT tardó 7,7\,s, las correspondencias 33,6\,s y GLOMAP 166\,s. En Aula B2 esos tiempos fueron 32\,s, 548\,s y 5\,834\,s, respectivamente: la extracción y las correspondencias en GPU fueron rápidas, y la mayor parte del tiempo se la llevó la etapa de reconstrucción global, que corre en CPU.
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.49\textwidth]{fig/comp_aulab1.jpg}\hfill
+\includegraphics[width=0.49\textwidth]{fig/comp_pasillo.jpg}
+\caption{Comparación entre la foto real (izquierda de cada par) y el render del modelo 3DGS (derecha), para un frame de evaluación no usado en el entrenamiento. Izquierda: Aula B1. Derecha: Pasillo.}
+\label{fig:comp1}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{fig/curvas_aulab2.jpg}
+\caption{Curvas de entrenamiento en Aula B2: pérdida, PSNR de entrenamiento, cantidad de gaussianas y PSNR sobre los frames de evaluación.}
+\label{fig:curvas}
+\end{figure*}
+
+
+El tiempo de SfM crece con el tamaño de la escena. En la escena Lata, la extracción SIFT tardó 7,7\,s, las correspondencias 33,6\,s y GLOMAP 166\,s. En Aula B2 esos tiempos fueron 32\,s, 548\,s y 5\,834\,s, respectivamente: la extracción y las correspondencias en GPU fueron rápidas, y la mayor parte del tiempo se la llevó la etapa de reconstrucción global, que corre en CPU.
 
 \subsection{Gaussian Splatting}
 
@@ -286,22 +312,8 @@ Tiempo de entren. (min)   & 29,6$^{*}$ & 37,2 & 71,3 & 47,2 \\
 \end{tabular}
 \end{table}
 
-Las cuatro escenas superan los 27\,dB de PSNR y los 0,89 de SSIM. Visualmente, los renders son muy parecidos a las fotos reales (Fig.~\ref{fig:comp1} y Fig.~\ref{fig:comp2}): se reconocen carteles, sillas, ventanas y objetos pequeños.
+Las cuatro escenas superan los 27\,dB de PSNR y los 0,89 de SSIM. Visualmente, los renders tienden a asemejarse a las fotos reales (Fig.~\ref{fig:comp1} y Fig.~\ref{fig:comp2}): se reconocen carteles, sillas, ventanas y objetos pequeños.
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.49\textwidth]{fig/comp_aulab1.jpg}\hfill
-\includegraphics[width=0.49\textwidth]{fig/comp_pasillo.jpg}
-\caption{Comparación entre la foto real (izquierda de cada par) y el render del modelo 3DGS (derecha), para un frame de evaluación no usado en el entrenamiento. Izquierda: Aula B1. Derecha: Pasillo.}
-\label{fig:comp1}
-\end{figure*}
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.95\textwidth]{fig/curvas_aulab2.jpg}
-\caption{Curvas de entrenamiento en Aula B2: pérdida, PSNR de entrenamiento, cantidad de gaussianas y PSNR sobre los frames de evaluación.}
-\label{fig:curvas}
-\end{figure*}
 
 \begin{figure}[htbp]
 \centering
@@ -327,10 +339,9 @@ La Fig.~\ref{fig:curvas} muestra la evolución del entrenamiento en Aula B2. La 
 \label{fig:gauss}
 \end{figure}
 
-
 \section{Discusión}
 
-El trabajo muestra que con un celular y procesamiento en la nube se puede obtener, entre media hora y tres horas según el tamaño de la escena, un modelo 3D de un entorno interior que se puede recorrer virtualmente. El pipeline aplica directamente los temas de la materia: el modelo de la cámara (Unidad II); la extracción de características con SIFT, las correspondencias y la eliminación de datos erróneos con RANSAC (Unidad III); y la estimación conjunta del movimiento de la cámara y de la estructura 3D, que es el problema de mapeo y localización simultánea resuelto en forma \textit{offline} (Unidad V).
+El trabajo muestra que con un celular y procesamiento en la nube se puede obtener, entre media hora y tres horas según el tamaño de la escena y el hardware utilizado, un modelo 3D de un entorno interior que se puede recorrer virtualmente. El pipeline aplica directamente los temas de la materia: el modelo de la cámara (Unidad II); la extracción de características con SIFT, las correspondencias y la eliminación de datos erróneos con RANSAC (Unidad III); y la estimación conjunta del movimiento de la cámara y de la estructura 3D, que es el problema de mapeo y localización simultánea resuelto en forma \textit{offline} (Unidad V).
 
 \begin{figure}[htbp]
 \centering
@@ -359,22 +370,17 @@ Usar la GPU para la extracción y la correspondencia de características redujo 
 \bibitem{catedraU5}
 Cátedra Introducción a los Vehículos Inteligentes, ``Unidad V: Aplicaciones (localización, construcción de mapas y SLAM),'' apuntes de clase, Facultad de Ingeniería, Universidad Nacional del Comahue, 2026.
 
-
 \bibitem{catedraU2}
 Cátedra Introducción a los Vehículos Inteligentes, ``Unidad II: Sensores típicos (LiDAR y cámara),'' apuntes de clase, Facultad de Ingeniería, Universidad Nacional del Comahue, 2026.
-
 
 \bibitem{catedraU3}
 Cátedra Introducción a los Vehículos Inteligentes, ``Unidad III: Extracción de características (RANSAC, puntos característicos, detectores, descriptores y correspondencias),'' apuntes de clase, Facultad de Ingeniería, Universidad Nacional del Comahue, 2026.
 
-
 \bibitem{colmap}
 J.~L. Schönberger, ``COLMAP: Structure-from-Motion and Multi-View Stereo,'' documentación oficial. [En línea]. Disponible: \url{https://colmap.github.io}
 
-
 \bibitem{kerbl2023}
 B.~Kerbl, G.~Kopanas, T.~Leimkühler y G.~Drettakis, ``3D Gaussian splatting for real-time radiance field rendering,'' \textit{ACM Transactions on Graphics}, vol.~42, no.~4, 2023. [En línea]. Disponible: \url{https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/}
-
 
 \bibitem{nerfstudio}
 Nerfstudio, ``Splatfacto,'' documentación oficial. [En línea]. Disponible: \url{https://docs.nerf.studio}
